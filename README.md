@@ -78,38 +78,13 @@ to you.
 ## 5. Part 1 — Verify your environment
 
 ```bash
-sudo modprobe mac80211_hwsim radios=3   # usually already loaded at boot
-iw dev
-```
-
-**Expected output (before namespaces are set up):** three physical devices
-(`phy0`, `phy1`, `phy2`), each with one interface (`wlan0`, `wlan1`, `wlan2`)
-in the default namespace. If you see fewer than three, stop and flag the
-instructor before continuing.
-
-Now create the namespaces and move one radio into each:
-
-```bash
-sudo /opt/eviltwin-lab/scripts/setup-netns.sh
 ip netns list
 ```
+<img width="614" height="145" alt="image" src="https://github.com/user-attachments/assets/4af6caff-04c2-484a-ba18-c2615059965a" />
+
 
 **Expected output:** `ns-corp`, `ns-eviltwin`, `ns-victim`.
 
-`setup-netns.sh` renames each namespace's radio to the canonical name
-`wlan0`. Confirm this — every namespace should now report exactly one
-interface named `wlan0`, and the default namespace should report none:
-
-```bash
-for ns in ns-corp ns-eviltwin ns-victim; do
-    echo "== $ns =="; sudo ip netns exec "$ns" iw dev | awk '/Interface/{print $2}'
-done
-iw dev | awk '/Interface/{print $2}'    # default namespace: expect no output
-```
-
-> **Run-order note:** namespaces do not survive a reboot. If you ever reboot
-> your VM, you must run `setup-netns.sh` again before any `start-*.sh` script,
-> or those scripts will report `wlan0 not found in ns-...`.
 
 ## 6. Part 2 — Stand up the legitimate Corporate AP
 
@@ -117,6 +92,8 @@ iw dev | awk '/Interface/{print $2}'    # default namespace: expect no output
 sudo /opt/eviltwin-lab/scripts/start-corp-ap.sh
 sudo ip netns exec ns-corp iw dev wlan0 info
 ```
+<img width="975" height="269" alt="image" src="https://github.com/user-attachments/assets/094abba1-aaeb-4a4e-bfec-a7352dad2bd8" />
+
 
 Confirm the output shows `type AP` and `ssid CorpNet-Secure`. This AP uses
 WPA2-PSK with passphrase `TrainingLab2026!` (defined in
@@ -129,11 +106,15 @@ config now so you understand every line).
 sudo /opt/eviltwin-lab/scripts/start-evil-twin.sh
 sudo ip netns exec ns-eviltwin iw dev wlan0 info
 ```
+<img width="975" height="274" alt="image" src="https://github.com/user-attachments/assets/4736328a-5f83-4016-aece-01252a946d52" />
 
 Confirm this radio also shows `type AP` and `ssid CorpNet-Secure` — the twin
 deliberately clones the corporate SSID. Open
 `/opt/eviltwin-lab/configs/hostapd-eviltwin.conf` and compare it line-by-line
 to the corporate AP's config. Note in your lab notebook:
+
+<img width="975" height="628" alt="image" src="https://github.com/user-attachments/assets/9023d167-38bf-4358-92cc-217fe78efd4e" />
+
 
 - What is identical between the two configs?
 - What is different, and why does each difference matter for the attack to
