@@ -168,6 +168,7 @@ sudo ip netns exec ns-victim iw dev wlan0 link
 ```
 <img width="705" height="240" alt="image" src="https://github.com/user-attachments/assets/b044f490-fa3a-44f3-b378-205670dfa041" />
 
+
 <img width="630" height="256" alt="image" src="https://github.com/user-attachments/assets/9653af9c-9a0a-487b-8728-0e8d82976582" />
 
 
@@ -193,6 +194,7 @@ station leaves, so a real deauth frame is present in your capture to analyze.
 ```bash
 sudo /opt/eviltwin-lab/scripts/simulate-deauth.sh
 ```
+<img width="731" height="390" alt="image" src="https://github.com/user-attachments/assets/af984f52-8c65-4891-85fd-2f98414aa28e" />
 
 The script prints the victim's association state before and after and confirms
 it is now disconnected and will not auto-reconnect. Now reassociate the victim,
