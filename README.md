@@ -140,7 +140,8 @@ EVIL_BSSID=$(sudo ip netns exec ns-eviltwin iw dev wlan0 info | awk '/addr/ {pri
 echo "Corp AP   BSSID: $CORP_BSSID"
 echo "Evil Twin BSSID: $EVIL_BSSID"
 ```
-
+<img width="716" height="90" alt="image" src="https://github.com/user-attachments/assets/3f04ccfd-e325-4bfb-a376-ed314e57bb98" />
+ 
 Because `CorpNet-Secure` is **WPA2**, the victim cannot join it with a bare
 `iw connect` (which only handles open or static-WEP networks). Use
 `wpa_supplicant`, pinned to the corporate BSSID so the victim joins the
