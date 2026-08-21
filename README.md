@@ -166,6 +166,10 @@ sudo ip netns exec ns-victim wpa_supplicant -B -i wlan0 -c /tmp/wpa-corp.conf
 sleep 3
 sudo ip netns exec ns-victim iw dev wlan0 link
 ```
+<img width="705" height="240" alt="image" src="https://github.com/user-attachments/assets/b044f490-fa3a-44f3-b378-205670dfa041" />
+
+<img width="630" height="256" alt="image" src="https://github.com/user-attachments/assets/9653af9c-9a0a-487b-8728-0e8d82976582" />
+
 
 Verify the `Connected to` line shows your **corporate** BSSID (`$CORP_BSSID`)
 and its channel/frequency. Record this in your notebook — it is your baseline
