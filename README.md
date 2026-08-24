@@ -142,7 +142,9 @@ echo "Evil Twin BSSID: $EVIL_BSSID"
 ```
 <img width="716" height="90" alt="image" src="https://github.com/user-attachments/assets/3f04ccfd-e325-4bfb-a376-ed314e57bb98" />
 
+
 <img width="747" height="180" alt="image" src="https://github.com/user-attachments/assets/97f3506c-207c-40c1-8575-5653dbe51dc5" />
+
 
 <img width="889" height="112" alt="image" src="https://github.com/user-attachments/assets/c6c1735b-8479-48a2-ada0-8d327d3b4ecb" />
 
@@ -207,6 +209,7 @@ station leaves, so a real deauth frame is present in your capture to analyze.
 sudo /opt/eviltwin-lab/scripts/simulate-deauth.sh
 ```
 <img width="731" height="390" alt="image" src="https://github.com/user-attachments/assets/af984f52-8c65-4891-85fd-2f98414aa28e" />
+
 
 The script prints the victim's association state before and after and confirms
 it is now disconnected and will not auto-reconnect.
