@@ -279,8 +279,6 @@ cd /opt/eviltwin-lab/captures
 mergecap -w combined.pcap corp.pcap eviltwin.pcap victim.pcap
 ```
 
-## 11. Part 7 — Analyze the capture
-
 ## 12. Part 7 — Analyze the capture
 
 This lab uses **two** captures, because each holds a different kind of evidence:
