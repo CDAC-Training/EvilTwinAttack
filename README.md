@@ -177,7 +177,6 @@ and its channel/frequency. Record this in your notebook — it is your baseline
 "before" state.
 
 ## 9. Part 5 — Force a roam with a (simulated) deauthentication attack
-## 9. Part 5 — Force a roam with a (simulated) deauthentication attack
 
 > **Start your capture first.** If you want the deauth and the roam in your
 > pcap, begin Part 6's `capture-all.sh` in a second terminal *before* running
