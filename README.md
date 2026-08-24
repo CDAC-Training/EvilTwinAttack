@@ -176,6 +176,18 @@ Verify the `Connected to` line shows your **corporate** BSSID (`$CORP_BSSID`)
 and its channel/frequency. Record this in your notebook — it is your baseline
 "before" state.
 
+> **Note — victim radio up/down state.** Starting `wpa_supplicant` brought
+> `wlan0` **up** as part of associating — that is why `link` now reports a
+> connection. This matters in Part 5: the simulated deauth *stops*
+> `wpa_supplicant`, which leaves `wlan0` administratively **down**. A down
+> interface cannot scan or associate, and `iw connect` will fail silently on
+> one, so you will bring the radio back up before joining the evil twin. Check
+> the state at any point with:
+>
+> ```bash
+> sudo ip netns exec ns-victim ip link show wlan0   # look for: state UP
+> ```
+
 ## 9. Part 5 — Force a roam with a (simulated) deauthentication attack
 
 > **Start your capture first.** If you want the deauth and the roam in your
