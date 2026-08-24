@@ -236,6 +236,10 @@ done
 sudo ip netns exec ns-victim iw dev wlan0 link
 ```
 
+<img width="1008" height="296" alt="image" src="https://github.com/user-attachments/assets/dd994aa9-215d-411c-8657-10a91069c7d3" />
+
+
+
 Confirm the `Connected to` BSSID now matches the **evil twin's** BSSID
 (`$EVIL_BSSID`), not the corporate AP's. The victim has been moved onto the
 attacker's AP while still believing it is on `CorpNet-Secure`.
