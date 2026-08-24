@@ -177,6 +177,7 @@ and its channel/frequency. Record this in your notebook — it is your baseline
 "before" state.
 
 ## 9. Part 5 — Force a roam with a (simulated) deauthentication attack
+## 9. Part 5 — Force a roam with a (simulated) deauthentication attack
 
 > **Start your capture first.** If you want the deauth and the roam in your
 > pcap, begin Part 6's `capture-all.sh` in a second terminal *before* running
@@ -197,13 +198,27 @@ sudo /opt/eviltwin-lab/scripts/simulate-deauth.sh
 <img width="731" height="390" alt="image" src="https://github.com/user-attachments/assets/af984f52-8c65-4891-85fd-2f98414aa28e" />
 
 The script prints the victim's association state before and after and confirms
-it is now disconnected and will not auto-reconnect. Now reassociate the victim,
-pinning the **evil twin's** BSSID so the roam is deterministic (the twin is an
-open network, so `iw connect` is the right tool here):
+it is now disconnected and will not auto-reconnect.
+
+**Stopping `wpa_supplicant` leaves the victim's `wlan0` administratively down.**
+`iw connect` cannot scan or associate on a down interface — it fails *silently*,
+and a subsequent `iw dev wlan0 link` reports `Not connected` with no error.
+Bring the interface back up first, then reassociate, pinning the **evil twin's**
+BSSID so the roam is deterministic (the twin is an open network, so `iw connect`
+is the right tool here):
 
 ```bash
+# 1. The victim radio is down after the deauth — bring it back up
+sudo ip netns exec ns-victim ip link set wlan0 up
+
+# 2. Associate to the evil twin by BSSID (open network → iw connect)
 sudo ip netns exec ns-victim iw dev wlan0 connect CorpNet-Secure "$EVIL_BSSID"
-sleep 2
+
+# 3. iw connect is asynchronous — poll until the link is up (up to ~10 s)
+for i in $(seq 1 10); do
+    sudo ip netns exec ns-victim iw dev wlan0 link | grep -q "Connected to" && break
+    sleep 1
+done
 sudo ip netns exec ns-victim iw dev wlan0 link
 ```
 
@@ -211,9 +226,22 @@ Confirm the `Connected to` BSSID now matches the **evil twin's** BSSID
 (`$EVIL_BSSID`), not the corporate AP's. The victim has been moved onto the
 attacker's AP while still believing it is on `CorpNet-Secure`.
 
+> **Troubleshooting — if `link` still shows `Not connected`:**
+> - **Interface down.** `sudo ip netns exec ns-victim ip link show wlan0` must
+>   list `state UP`. If it does not, re-run step 1 — this is the most common
+>   cause.
+> - **BSSID variable empty.** An empty `$EVIL_BSSID` makes `iw connect` match
+>   nothing. Verify with `echo "$EVIL_BSSID"`; if blank, re-run the two
+>   `... | awk '/addr/'` commands from Part 4 to repopulate it.
+> - **Twin not visible / not open.** `sudo ip netns exec ns-victim iw dev wlan0
+>   scan | grep -iE 'BSS |SSID|RSN'` should list the evil twin's BSSID with
+>   **no** `RSN:` line beneath it. If it shows `RSN:`, you are looking at the
+>   corporate AP, not the twin — re-check `$EVIL_BSSID`.
+
 > If `$CORP_BSSID` / `$EVIL_BSSID` are empty (e.g. you opened a fresh terminal
 > and lost the shell variables), re-run the two `... | awk '/addr/'` commands
 > from Part 4 to repopulate them.
+
 
 ## 10. Part 6 — Capture everything
 
