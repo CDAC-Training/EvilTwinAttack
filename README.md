@@ -281,20 +281,39 @@ mergecap -w combined.pcap corp.pcap eviltwin.pcap victim.pcap
 
 ## 11. Part 7 — Analyze the capture
 
-Open `combined.pcap` in Wireshark (or use `tshark` on the command line) and
-answer the following in your submission. Use these filters as starting
-points:
+## 12. Part 7 — Analyze the capture
 
-```
-wlan.fc.type_subtype == 0x08        # beacon frames
-wlan.fc.type_subtype == 0x0c        # deauthentication frames
-wlan.ssid == "CorpNet-Secure"       # both APs, filtered by SSID
-http.request.method == "POST"       # the harvested-credential submission
+This lab uses **two** captures, because each holds a different kind of evidence:
+
+- **`eviltwin_training_sample.pcap`** (shipped with the lab) is a *monitor-mode*
+  802.11 capture containing radiotap headers, beacon frames, and the deauth
+  frame. Use it for the **management-frame** questions.
+- **`combined.pcap`** (your own, from Part 6) is captured on the AP/station
+  interfaces, which mac80211 presents to the capture as **Ethernet frames**, not
+  raw 802.11. It therefore holds the **data-plane** evidence — the DHCP lease and
+  the cleartext HTTP POST — but *no* 802.11 management frames. This is expected
+  on a three-radio build with no spare monitor-mode radio (see the instructor
+  note in §14).
+
+Run the 802.11 management-frame filters against the **sample** capture:
+
+```bash
+tshark -r eviltwin_training_sample.pcap -Y "wlan.fc.type_subtype == 0x08"    # beacons
+tshark -r eviltwin_training_sample.pcap -Y "wlan.fc.type_subtype == 0x0c"    # deauth
+tshark -r eviltwin_training_sample.pcap -Y 'wlan.ssid == "CorpNet-Secure"'   # both APs by SSID
 ```
 
-Also try the sample capture included with this lab,
-`eviltwin_training_sample.pcap`, which contains the same attack sequence
-pre-recorded for practice before you analyze your own live capture.
+Run the credential-harvest filters against **your own** capture:
+
+```bash
+tshark -r combined.pcap -Y "http.request.method == POST"    # the harvested credential POST
+tshark -r combined.pcap -Y "dhcp || bootp"                  # the victim's lease from the twin
+```
+
+Answer the §14 questions from the appropriate capture. If the two management
+filters return nothing against `combined.pcap`, that is expected and is itself a
+finding worth noting: on this topology the 802.11 control plane is not visible to
+a data-plane capture.
 
 
 ## 12. Part 8 — Harvest credentials through the captive portal
