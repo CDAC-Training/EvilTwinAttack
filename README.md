@@ -296,16 +296,43 @@ Also try the sample capture included with this lab,
 `eviltwin_training_sample.pcap`, which contains the same attack sequence
 pre-recorded for practice before you analyze your own live capture.
 
-## 12. Part 8 — Review the harvested credentials
+
+## 12. Part 8 — Harvest credentials through the captive portal
+
+At the end of Part 5 the victim is associated to the open evil twin, but that
+is a **layer-2 association only** — it has no IP configuration yet. Request a
+DHCP lease from the twin's `dnsmasq`, then submit credentials to the captive
+portal exactly as a deceived user would. **Do this while the Part 6 capture is
+still running** so the HTTP POST is recorded in your pcap.
+
+```bash
+# 1. Obtain an IPv4 lease from the evil twin's dnsmasq
+sudo ip netns exec ns-victim dhcpcd -v wlan0
+sudo ip netns exec ns-victim ip addr show wlan0        # expect a 10.10.11.x address
+
+# 2. (Optional) read the portal's form so you use its real field names
+sudo ip netns exec ns-victim curl -s http://10.10.11.1/ | grep -iE 'action|input'
+
+# 3. Submit credentials to the portal — this is the "deceived user" action
+sudo ip netns exec ns-victim curl -s -X POST \
+     -d 'user=student25&pass=Summer2026!' \
+     http://10.10.11.1/log.php
+```
+
+> Match the path (`log.php`) and field names (`user` / `pass`) to your portal's
+> actual form if the build differs — read them from step 2's output or from the
+> portal source under `/opt/eviltwin-lab/`.
+
+Now review what the attacker captured in cleartext:
 
 ```bash
 cat /opt/eviltwin-lab/logs/harvested_creds.log
 ```
 
-This demonstrates the endpoint impact of the attack: once a victim is on
-the open evil twin and hits the captive portal, anything they submit is
-visible to the attacker in cleartext. Note in your submission why this
-would **not** work the same way against the legitimate AP's WPA2 encryption.
+This demonstrates the endpoint impact of the attack: once a victim is on the
+open evil twin and hits the captive portal, anything they submit is visible to
+the attacker in cleartext. Note in your submission why this would **not** work
+the same way against the legitimate AP's WPA2 encryption.
 
 ## 13. Cleanup
 
