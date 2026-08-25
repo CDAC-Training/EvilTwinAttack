@@ -297,9 +297,22 @@ Run the 802.11 management-frame filters against the **sample** capture:
 
 ```bash
 tshark -r eviltwin_training_sample.pcap -Y "wlan.fc.type_subtype == 0x08"    # beacons
+
+```
+
+<img width="1019" height="401" alt="image" src="https://github.com/user-attachments/assets/718d4066-433d-45e3-b2b8-77641d0ad5e7" />
+
+```bash
 tshark -r eviltwin_training_sample.pcap -Y "wlan.fc.type_subtype == 0x0c"    # deauth
+```
+<img width="961" height="117" alt="image" src="https://github.com/user-attachments/assets/2783e312-c529-4389-9a4c-2a14981f2e3c" />
+
+```bash
 tshark -r eviltwin_training_sample.pcap -Y 'wlan.ssid == "CorpNet-Secure"'   # both APs by SSID
 ```
+
+<img width="1098" height="476" alt="image" src="https://github.com/user-attachments/assets/8989dfd1-3918-46ea-8d65-cff8602ad009" />
+
 
 Run the credential-harvest filters against **your own** capture:
 
@@ -335,6 +348,9 @@ sudo ip netns exec ns-victim curl -s -X POST \
      -d 'user=student25&pass=Summer2026!' \
      http://10.10.11.1/log.php
 ```
+
+<img width="935" height="195" alt="image" src="https://github.com/user-attachments/assets/b7b28a9c-91bd-4f8a-ab15-b54ebfc127a2" />
+
 
 > Match the path (`log.php`) and field names (`user` / `pass`) to your portal's
 > actual form if the build differs — read them from step 2's output or from the
