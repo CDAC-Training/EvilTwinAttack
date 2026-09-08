@@ -1,0 +1,710 @@
+#!/usr/bin/env bash
+#
+# eviltwin -- friendly wrapper CLI for the Evil Twin Attack training lab.
+#
+# One short subcommand per lab step so students don't copy-paste long
+# `sudo ip netns exec ns-... ...` blocks. Every action is ECHOED before it
+# runs (so you still see the real command you're learning), and the BSSIDs
+# are read for you at runtime -- no more juggling $CORP_BSSID / $EVIL_BSSID
+# shell variables that vanish when you open a new terminal.
+#
+# Install (once, on the VM):
+#     sudo install -m 0755 eviltwin /usr/local/bin/eviltwin
+# then just run:  eviltwin --help
+#
+# It can also be run in place for testing:  ./eviltwin status
+#
+# This wrapper CALLS the existing scripts under /opt/eviltwin-lab/scripts/ --
+# it does not replace them. See `eviltwin --help`.
+
+set -uo pipefail
+
+# Remember the ORIGINAL argv so a sudo re-exec (need_root) replays the full
+# command (e.g. `eviltwin corp`), not just whatever args survived main()'s shift.
+ARGV=("$@")
+
+# --------------------------------------------------------------------------
+# Constants -- match the existing lab scripts.
+# --------------------------------------------------------------------------
+LAB="/opt/eviltwin-lab"
+SCRIPTS="$LAB/scripts"
+CAPTURES="$LAB/captures"
+CONFIGS="$LAB/configs"
+LOGS="$LAB/logs"
+IFACE="wlan0"                       # every namespace's radio is renamed to wlan0
+SSID="CorpNet-Secure"
+PSK="TrainingLab2026!"
+PORTAL="http://10.10.11.1"
+SAMPLE_PCAP="eviltwin_training_sample.pcap"
+
+NS_CORP="ns-corp"
+NS_EVIL="ns-eviltwin"
+NS_VICTIM="ns-victim"
+
+PROG="$(basename "$0")"
+
+# --------------------------------------------------------------------------
+# Pretty output helpers.
+# --------------------------------------------------------------------------
+if [ -t 1 ]; then
+    C_DIM=$'\033[2m'; C_BOLD=$'\033[1m'; C_GREEN=$'\033[32m'
+    C_RED=$'\033[31m'; C_YEL=$'\033[33m'; C_RST=$'\033[0m'
+else
+    C_DIM=""; C_BOLD=""; C_GREEN=""; C_RED=""; C_YEL=""; C_RST=""
+fi
+
+info() { printf '%s[*]%s %s\n' "$C_BOLD" "$C_RST" "$*"; }
+ok()   { printf '%s[ok]%s %s\n' "$C_GREEN" "$C_RST" "$*"; }
+warn() { printf '%s[!]%s %s\n'  "$C_YEL" "$C_RST" "$*" >&2; }
+die()  { printf '%s[x]%s %s\n'  "$C_RED" "$C_RST" "$*" >&2; exit 1; }
+
+# run: echo the real command (teaching value), then execute it.
+run() {
+    printf '%s+ %s%s\n' "$C_DIM" "$*" "$C_RST" >&2
+    "$@"
+}
+
+# --------------------------------------------------------------------------
+# Root handling -- almost everything needs root; re-exec under sudo so the
+# student never has to prepend it themselves.
+# --------------------------------------------------------------------------
+need_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        info "Elevating with sudo..."
+        exec sudo "$0" "${ARGV[@]}"
+    fi
+}
+
+# --------------------------------------------------------------------------
+# Preflight helpers.
+# --------------------------------------------------------------------------
+ns_exists() { ip netns list 2>/dev/null | grep -qw "$1"; }
+
+require_ns() {
+    ns_exists "$1" || die "Namespace $1 does not exist. Run: $PROG setup"
+}
+
+# Read a BSSID (the AP's MAC) live from a namespace's radio. Empty if the
+# radio/AP isn't up yet -- callers must check.
+bssid_of() {
+    ip netns exec "$1" iw dev "$IFACE" info 2>/dev/null | awk '/addr/ {print $2}'
+}
+
+# Current BSSID the victim is associated to (empty if not connected).
+victim_link_bssid() {
+    ip netns exec "$NS_VICTIM" iw dev "$IFACE" link 2>/dev/null \
+        | awk '/Connected to/ {print $3}'
+}
+
+# --------------------------------------------------------------------------
+# Subcommands.
+# --------------------------------------------------------------------------
+
+cmd_status() {
+    info "Namespaces present:"
+    run ip netns list
+    local missing=0 ns
+    for ns in "$NS_CORP" "$NS_EVIL" "$NS_VICTIM"; do
+        if ns_exists "$ns"; then
+            ok "$ns present"
+        else
+            warn "$ns MISSING"
+            missing=1
+        fi
+    done
+    if [ "$missing" -ne 0 ]; then
+        warn "Not all namespaces exist yet. Run: $PROG setup"
+        return 1
+    fi
+    ok "All three lab namespaces are present."
+}
+
+# cmd_show: the "where am I in the attack?" dashboard. One screen showing both
+# APs and, crucially, WHICH AP the victim is on right now -- the whole point of
+# the lab is watching the victim's BSSID flip from corp to evil while the SSID
+# never changes. Read-only, but needs root for 'ip netns exec'.
+cmd_show() {
+    need_root "$@"
+
+    # Live AP facts (up?, BSSID, channel). Channel falls back to the known
+    # lab config values if the radio can't be read.
+    local corp_up=DOWN evil_up=DOWN corp_b evil_b corp_ch evil_ch vb
+    if ns_exists "$NS_CORP"; then
+        ip netns exec "$NS_CORP" iw dev "$IFACE" info 2>/dev/null | grep -q "type AP" && corp_up=UP
+        corp_b="$(bssid_of "$NS_CORP")"
+        corp_ch="$(ip netns exec "$NS_CORP" iw dev "$IFACE" info 2>/dev/null | awk '/channel/{print $2; exit}')"
+    fi
+    if ns_exists "$NS_EVIL"; then
+        ip netns exec "$NS_EVIL" iw dev "$IFACE" info 2>/dev/null | grep -q "type AP" && evil_up=UP
+        evil_b="$(bssid_of "$NS_EVIL")"
+        evil_ch="$(ip netns exec "$NS_EVIL" iw dev "$IFACE" info 2>/dev/null | awk '/channel/{print $2; exit}')"
+    fi
+    vb="$(victim_link_bssid)"
+
+    info "Lab state -- both APs broadcast the SAME SSID '$SSID';"
+    info "the BSSID is the only thing that tells them apart:"
+    printf '  %-11s%s%-5s%s BSSID %s%-18s%s WPA2, ch %s\n' \
+        "Corp AP" "$C_GREEN" "$corp_up" "$C_RST" "$C_BOLD" "${corp_b:-<none>}" "$C_RST" "${corp_ch:-6}"
+    printf '  %-11s%s%-5s%s BSSID %s%-18s%s OPEN, ch %s\n' \
+        "Evil Twin" "$C_RED" "$evil_up" "$C_RST" "$C_BOLD" "${evil_b:-<none>}" "$C_RST" "${evil_ch:-11}"
+
+    printf '  %-11s' "Victim"
+    if [ -z "$vb" ]; then
+        printf '%snot connected%s (radio may be down -- see: %s victim state)\n' \
+            "$C_YEL" "$C_RST" "$PROG"
+    elif [ "$vb" = "$corp_b" ]; then
+        printf '%s-> %s%s  %sON THE LEGIT AP -- baseline / BEFORE state%s\n' \
+            "$C_BOLD" "$vb" "$C_RST" "$C_GREEN" "$C_RST"
+    elif [ "$vb" = "$evil_b" ]; then
+        printf '%s-> %s%s  %sON THE EVIL TWIN -- attack succeeded (still thinks it is %s)%s\n' \
+            "$C_BOLD" "$vb" "$C_RST" "$C_RED" "$SSID" "$C_RST"
+    else
+        printf '%s-> %s%s  (unrecognized BSSID)\n' "$C_BOLD" "$vb" "$C_RST"
+    fi
+}
+
+cmd_setup() {
+    need_root "$@"
+    info "Creating namespaces and assigning one radio (wlan0) to each..."
+    run "$SCRIPTS/setup-netns.sh"
+}
+
+# --- corp: split into 'up' (start the AP) and 'info' (verify the radio) so
+#     students run, and understand, each action separately.
+corp_up() {
+    require_ns "$NS_CORP"
+    info "Starting the legitimate corporate AP ($SSID, WPA2)..."
+    run "$SCRIPTS/start-corp-ap.sh"
+    ok "Corp AP up. BSSID: $(bssid_of "$NS_CORP")"
+}
+corp_info() {
+    require_ns "$NS_CORP"
+    info "Corp AP radio info (confirm 'type AP' and 'ssid $SSID'):"
+    run ip netns exec "$NS_CORP" iw dev "$IFACE" info
+}
+cmd_corp() {
+    need_root "$@"
+    case "${1:-all}" in
+        up)      corp_up ;;
+        info)    corp_info ;;
+        all|"")  corp_up; corp_info ;;
+        *)       die "Unknown: corp $1  (use: $PROG corp up | $PROG corp info)" ;;
+    esac
+}
+
+# --- twin: same up/info split as corp.
+twin_up() {
+    require_ns "$NS_EVIL"
+    info "Starting the rogue evil twin AP (open) + dnsmasq + captive portal..."
+    run "$SCRIPTS/start-evil-twin.sh"
+    ok "Evil twin up. BSSID: $(bssid_of "$NS_EVIL")"
+}
+twin_info() {
+    require_ns "$NS_EVIL"
+    info "Evil twin radio info (confirm 'type AP' and the cloned ssid $SSID):"
+    run ip netns exec "$NS_EVIL" iw dev "$IFACE" info
+}
+cmd_twin() {
+    need_root "$@"
+    case "${1:-all}" in
+        up)      twin_up ;;
+        info)    twin_info ;;
+        all|"")  twin_up; twin_info ;;
+        *)       die "Unknown: twin $1  (use: $PROG twin up | $PROG twin info)" ;;
+    esac
+}
+
+# --- compare: one command to see the legitimate corp AP config next to the
+#     evil-twin config, with an auto summary of what's IDENTICAL vs DIFFERENT
+#     (answers the two Part 3 review questions). Read-only -- no root needed,
+#     changes nothing; only reads the two hostapd configs.
+_conf_val() { awk -F= -v k="$1" '$1==k{sub(/^[^=]*=/,"");print;exit}' "$2"; }
+
+cmd_compare() {
+    local corp="$CONFIGS/hostapd-corp.conf" evil="$CONFIGS/hostapd-eviltwin.conf" f
+    for f in "$corp" "$evil"; do
+        [ -f "$f" ] || die "Config not found: $f (is the lab installed under $LAB?)"
+    done
+
+    info "hostapd config comparison (Part 3):"
+    printf '  corp (legit): %s\n'   "$corp"
+    printf '  evil (twin) : %s\n\n' "$evil"
+
+    # Strip comments / inline comments / blank lines, trim whitespace, so the
+    # comparison shows only effective directives.
+    local c_tmp e_tmp strip='s/#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d'
+    c_tmp="$(mktemp)"; e_tmp="$(mktemp)"
+    sed "$strip" "$corp" > "$c_tmp"
+    sed "$strip" "$evil" > "$e_tmp"
+
+    info "Side by side (corp | evil):"
+    # diff -y marks differing lines with | and only-one-side lines with < / > ;
+    # identical lines print with no marker -- the same/different view we want.
+    diff -y --width=72 "$c_tmp" "$e_tmp" || true
+    echo
+
+    local keys k in_c in_e cv ev
+    keys="$(cut -d= -f1 "$c_tmp" "$e_tmp" | sort -u)"
+
+    info "Identical directives:"
+    while IFS= read -r k; do
+        [ -n "$k" ] || continue
+        if grep -q "^$k=" "$c_tmp" && grep -q "^$k=" "$e_tmp" \
+           && [ "$(_conf_val "$k" "$c_tmp")" = "$(_conf_val "$k" "$e_tmp")" ]; then
+            printf '  %s%s=%s%s\n' "$C_GREEN" "$k" "$(_conf_val "$k" "$c_tmp")" "$C_RST"
+        fi
+    done <<EOF
+$keys
+EOF
+
+    printf '\n'; info "Different / only on one side:"
+    while IFS= read -r k; do
+        [ -n "$k" ] || continue
+        in_c=no; in_e=no
+        grep -q "^$k=" "$c_tmp" && in_c=yes
+        grep -q "^$k=" "$e_tmp" && in_e=yes
+        cv="$(_conf_val "$k" "$c_tmp")"; ev="$(_conf_val "$k" "$e_tmp")"
+        if [ "$in_c" = yes ] && [ "$in_e" = yes ]; then
+            [ "$cv" = "$ev" ] && continue      # identical -- already listed above
+            printf '  %s%-22s%s corp=%s%-16s%s twin=%s%s%s\n' \
+                "$C_YEL" "$k" "$C_RST" "$C_BOLD" "$cv" "$C_RST" "$C_BOLD" "$ev" "$C_RST"
+        elif [ "$in_c" = yes ]; then
+            printf '  %s%-22s%s corp=%s%-16s%s twin=%s(absent)%s\n' \
+                "$C_YEL" "$k" "$C_RST" "$C_BOLD" "$cv" "$C_RST" "$C_DIM" "$C_RST"
+        else
+            printf '  %s%-22s%s corp=%s(absent)%-7s%s twin=%s%s%s\n' \
+                "$C_YEL" "$k" "$C_RST" "$C_DIM" "" "$C_RST" "$C_BOLD" "$ev" "$C_RST"
+        fi
+    done <<EOF
+$keys
+EOF
+
+    rm -f "$c_tmp" "$e_tmp"
+
+    cat <<EOF
+
+${C_BOLD}Why it matters${C_RST}
+  ssid=$SSID is identical on purpose: the twin clones the corporate SSID so the
+    victim's device sees the same network name and reconnects automatically.
+  wpa 2 -> 0: the corp AP is WPA2 (encrypted, needs the passphrase); the twin
+    is OPEN, so any client associates with no key -- nothing to crack.
+  channel 6 -> 11: the twin uses a different channel so the two APs (same SSID,
+    different BSSID) don't interfere on this shared-medium sim.
+  The BSSID (radio MAC) is the only thing that tells the two APs apart -- see:
+    $PROG bssids
+EOF
+}
+
+cmd_bssids() {
+    require_ns "$NS_CORP"
+    require_ns "$NS_EVIL"
+    local corp evil
+    corp="$(bssid_of "$NS_CORP")"
+    evil="$(bssid_of "$NS_EVIL")"
+    [ -n "$corp" ] || warn "Corp BSSID empty -- is the corp AP up? Run: $PROG corp"
+    [ -n "$evil" ] || warn "Evil BSSID empty -- is the twin up? Run: $PROG twin"
+    printf '  Corp AP   BSSID: %s%s%s\n' "$C_BOLD" "${corp:-<none>}" "$C_RST"
+    printf '  Evil Twin BSSID: %s%s%s\n' "$C_BOLD" "${evil:-<none>}" "$C_RST"
+    info "Both APs broadcast the identical SSID '$SSID' -- the BSSID is the"
+    info "only thing that tells them apart."
+}
+
+# --- victim: Part 4 broken into one command per teachable action, each with
+#     an observation, mirroring the corp/twin up|info split. Bare 'victim'
+#     runs the full baseline (up -> conf -> join -> verify). 'victim state' is
+#     a standalone check you can run at any point (before/after the deauth).
+
+# Step 1: bring the victim radio up (but NOT yet associated).
+victim_up() {
+    require_ns "$NS_VICTIM"
+    info "Step 1/4 -- bringing the victim radio up..."
+    run "$SCRIPTS/start-victim.sh"
+    info "Observe: the radio is UP but NOT yet associated ('Not connected'):"
+    run ip netns exec "$NS_VICTIM" ip -br link show "$IFACE"
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" link
+}
+
+# Step 2: write a wpa_supplicant config PINNED to the live corporate BSSID.
+victim_conf() {
+    require_ns "$NS_CORP"
+    local corp
+    corp="$(bssid_of "$NS_CORP")"
+    [ -n "$corp" ] || die "Corp AP BSSID is empty -- start it first: $PROG corp"
+    info "Step 2/4 -- corp AP BSSID (read live): $corp"
+    info "Writing /tmp/wpa-corp.conf pinned to that BSSID..."
+    cat > /tmp/wpa-corp.conf <<EOF
+network={
+    ssid="$SSID"
+    bssid=$corp
+    psk="$PSK"
+    scan_ssid=1
+}
+EOF
+    printf '%s+ cat > /tmp/wpa-corp.conf (bssid=%s)%s\n' "$C_DIM" "$corp" "$C_RST" >&2
+    info "Observe: 'bssid=' LOCKS the victim to the legit AP so it can't drift"
+    info "onto the twin; WPA2 means a 'psk' is required:"
+    run cat /tmp/wpa-corp.conf
+}
+
+# Step 3: associate to the legit WPA2 AP with wpa_supplicant.
+victim_join() {
+    require_ns "$NS_VICTIM"
+    [ -f /tmp/wpa-corp.conf ] || die "/tmp/wpa-corp.conf missing -- run: $PROG victim conf"
+    info "Step 3/4 -- associating to the LEGITIMATE AP with wpa_supplicant..."
+    info "(WPA2 -> wpa_supplicant; 'iw connect' only handles open/WEP)"
+    run ip netns exec "$NS_VICTIM" wpa_supplicant -B -i "$IFACE" -c /tmp/wpa-corp.conf
+    sleep 3
+    info "Observe: link state right after joining:"
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" link
+}
+
+# Step 4: verify the victim is on the CORPORATE BSSID -- the 'before' state.
+victim_verify() {
+    require_ns "$NS_VICTIM"
+    require_ns "$NS_CORP"
+    local corp now
+    corp="$(bssid_of "$NS_CORP")"
+    [ -n "$corp" ] || die "Corp AP BSSID is empty -- start it first: $PROG corp"
+    info "Step 4/4 -- expected (corporate) BSSID: $corp"
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" link
+    now="$(victim_link_bssid)"
+    if [ "$now" = "$corp" ]; then
+        ok "Baseline OK -- victim is on the CORPORATE AP ($corp)."
+        ok "This is your BEFORE state -- record this BSSID. In Part 5 the victim"
+        ok "will move to the EVIL TWIN's BSSID (compare with: $PROG bssids)."
+    else
+        warn "Victim link BSSID is '${now:-<none>}', expected corp '$corp'."
+        warn "Re-check with: $PROG bssids ; radio state: $PROG victim state"
+        return 1
+    fi
+}
+
+# Standalone: show BOTH layers of victim state -- admin up/down AND association.
+victim_state() {
+    require_ns "$NS_VICTIM"
+    info "Administrative state (look for 'state UP' -- is the radio turned on?):"
+    run ip netns exec "$NS_VICTIM" ip link show "$IFACE"
+    info "Association state ('Connected to <BSSID>' vs 'Not connected'):"
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" link
+    info "These are two DIFFERENT layers: 'ip link' = radio on/off; 'iw link' ="
+    info "associated or not. After a deauth the radio can be DOWN with no error"
+    info "shown -- which is why '$PROG roam' brings it up before reconnecting."
+}
+
+cmd_victim() {
+    need_root "$@"
+    case "${1:-all}" in
+        up)      victim_up ;;
+        conf)    victim_conf ;;
+        join)    victim_join ;;
+        verify)  victim_verify ;;
+        state)   victim_state ;;
+        all|"")  victim_up; victim_conf; victim_join; victim_verify ;;
+        *)       die "Unknown: victim $1  (use: $PROG victim up|conf|join|verify|state|all)" ;;
+    esac
+}
+
+cmd_capture() {
+    need_root "$@"
+    require_ns "$NS_CORP"; require_ns "$NS_EVIL"; require_ns "$NS_VICTIM"
+    warn "Run this in a SECOND terminal, BEFORE '$PROG deauth', so the roam"
+    warn "and the credential POST land in your capture. Press Ctrl-C to stop."
+    info "Capturing on wlan0 in all three namespaces..."
+    run "$SCRIPTS/capture-all.sh"
+}
+
+cmd_deauth() {
+    need_root "$@"
+    require_ns "$NS_VICTIM"
+    info "Simulating a deauthentication attack against the victim..."
+    run "$SCRIPTS/simulate-deauth.sh"
+    info "Observe: the victim's state right after the deauth --"
+    victim_state
+    info "The victim is off the corp AP and will NOT auto-reconnect."
+    info "Next: '$PROG roam' to move the victim onto the evil twin."
+}
+
+# --- roam: Part 5's reassociation, one command per teachable action (mirrors
+#     the victim up|conf|join|verify split). Bare 'roam' does all three.
+
+# Step 1: the victim radio can be DOWN after the deauth -- bring it back up.
+roam_up() {
+    require_ns "$NS_VICTIM"
+    # After a deauth the victim radio may be administratively DOWN; iw connect
+    # fails SILENTLY on a down interface (see manual Part 5). Bring it up first.
+    info "Step 1/3 -- bringing the victim radio back up (it may be down after"
+    info "the deauth; 'iw connect' fails silently on a down interface)..."
+    run ip netns exec "$NS_VICTIM" ip link set "$IFACE" up
+    info "Observe: confirm 'state UP':"
+    run ip netns exec "$NS_VICTIM" ip link show "$IFACE"
+}
+
+# Step 2: associate to the OPEN evil twin by BSSID (open network -> iw connect).
+roam_connect() {
+    require_ns "$NS_VICTIM"
+    require_ns "$NS_EVIL"
+    local evil i
+    evil="$(bssid_of "$NS_EVIL")"
+    [ -n "$evil" ] || die "Evil twin BSSID is empty -- is the twin up? Run: $PROG twin"
+    info "Step 2/3 -- evil twin BSSID (read live): $evil"
+    info "Associating to the EVIL TWIN (open network -> iw connect;"
+    info "contrast Part 4: the corp AP was WPA2 -> wpa_supplicant)..."
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" connect "$SSID" "$evil"
+    info "iw connect is asynchronous -- polling the link for up to ~10s..."
+    for i in $(seq 1 10); do
+        ip netns exec "$NS_VICTIM" iw dev "$IFACE" link 2>/dev/null \
+            | grep -q "Connected to" && break
+        sleep 1
+    done
+    info "Observe: link state after the poll:"
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" link
+}
+
+# Step 3: verify the victim is now on the EVIL TWIN's BSSID.
+roam_verify() {
+    require_ns "$NS_VICTIM"
+    require_ns "$NS_EVIL"
+    local evil now
+    evil="$(bssid_of "$NS_EVIL")"
+    [ -n "$evil" ] || die "Evil twin BSSID is empty -- is the twin up? Run: $PROG twin"
+    info "Step 3/3 -- expected (evil twin) BSSID: $evil"
+    run ip netns exec "$NS_VICTIM" iw dev "$IFACE" link
+    now="$(victim_link_bssid)"
+    if [ "$now" = "$evil" ]; then
+        ok "Roam OK -- victim is now on the EVIL TWIN ($evil), still believing"
+        ok "it is on '$SSID'. Compare with your Part 4 baseline BSSID."
+    else
+        warn "Victim link BSSID is '${now:-<none>}', expected evil '$evil'."
+        warn "Troubleshooting:"
+        warn "  - radio down? check with: $PROG victim state  (needs 'state UP')"
+        warn "  - twin up and open? check with: $PROG bssids"
+        return 1
+    fi
+}
+
+cmd_roam() {
+    need_root "$@"
+    case "${1:-all}" in
+        up)      roam_up ;;
+        connect) roam_connect ;;
+        verify)  roam_verify ;;
+        all|"")  roam_up; roam_connect; roam_verify ;;
+        *)       die "Unknown: roam $1  (use: $PROG roam up|connect|verify|all)" ;;
+    esac
+}
+
+# --- portal: Part 8 broken into one command per teachable action, mirroring
+#     the victim/roam splits. Bare 'portal' does dhcp + submit. 'form' is the
+#     manual's optional field-name step, standalone (not part of 'all').
+
+# Step 1: get an IPv4 lease -- from the ATTACKER's dnsmasq, not the corp net.
+portal_dhcp() {
+    require_ns "$NS_VICTIM"
+    info "Step 1 -- requesting a DHCP lease from the evil twin's dnsmasq..."
+    run ip netns exec "$NS_VICTIM" dhcpcd -v "$IFACE"
+    info "Observe: the address should be 10.10.11.x -- the victim got its IP"
+    info "config from the ATTACKER's dnsmasq, not the corporate network:"
+    run ip netns exec "$NS_VICTIM" ip addr show "$IFACE"
+}
+
+# Optional: read the portal's form so you use its real field names.
+portal_form() {
+    require_ns "$NS_VICTIM"
+    info "Reading the captive portal's form (so you POST its real field names):"
+    printf '%s+ ip netns exec %s curl -s %s/ | grep -iE '\''action|input'\''%s\n' \
+        "$C_DIM" "$NS_VICTIM" "$PORTAL" "$C_RST" >&2
+    ip netns exec "$NS_VICTIM" curl -s "$PORTAL/" | grep -iE 'action|input' || true
+    info "Match the --user/--pass field names and the log.php path to what you"
+    info "see here if your build's portal differs."
+}
+
+# Step 3: submit credentials -- the "deceived user" action.
+portal_submit() {
+    require_ns "$NS_VICTIM"
+    local user="$1" pass="$2"
+    info "Submitting credentials to the captive portal as a deceived user..."
+    run ip netns exec "$NS_VICTIM" curl -s -X POST \
+        -d "user=$user&pass=$pass" \
+        "$PORTAL/log.php"
+    echo
+    ok "Submitted user=$user to $PORTAL/log.php. See harvested creds: $PROG creds"
+}
+
+cmd_portal() {
+    need_root "$@"
+    require_ns "$NS_VICTIM"
+
+    local sub="all"
+    case "${1:-}" in
+        dhcp|form|submit|all) sub="$1"; shift ;;
+    esac
+
+    local user="student25" pass="Summer2026!"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --user) user="$2"; shift 2 ;;
+            --user=*) user="${1#*=}"; shift ;;
+            --pass) pass="$2"; shift 2 ;;
+            --pass=*) pass="${1#*=}"; shift ;;
+            *) die "Unknown option for portal: $1 (use --user/--pass, or a sub: dhcp|form|submit|all)" ;;
+        esac
+    done
+
+    case "$sub" in
+        dhcp)   portal_dhcp ;;
+        form)   portal_form ;;
+        submit) portal_submit "$user" "$pass" ;;
+        all)    portal_dhcp; portal_submit "$user" "$pass" ;;
+    esac
+}
+
+cmd_creds() {
+    info "Credentials harvested by the attacker (cleartext):"
+    run cat "$LOGS/harvested_creds.log"
+    info "This is the endpoint impact: on the OPEN evil twin, anything the"
+    info "victim submits is visible in cleartext. The same POST over the corp"
+    info "AP's WPA2 link would be encrypted on the air -- note that in your writeup."
+}
+
+cmd_merge() {
+    need_root "$@"
+    info "Merging the three per-namespace captures into combined.pcap..."
+    ( cd "$CAPTURES" && run mergecap -w combined.pcap corp.pcap eviltwin.pcap victim.pcap )
+    ok "Wrote $CAPTURES/combined.pcap"
+}
+
+cmd_analyze() {
+    local sample="$CAPTURES/$SAMPLE_PCAP" combined="$CAPTURES/combined.pcap"
+    # The sample may ship elsewhere; fall back to a bare filename in $CAPTURES.
+    [ -f "$sample" ] || sample="$SAMPLE_PCAP"
+
+    info "802.11 management frames (from the shipped sample capture):"
+    info "  beacons (0x08):"
+    run tshark -r "$sample" -Y "wlan.fc.type_subtype == 0x08"
+    info "  deauth (0x0c):"
+    run tshark -r "$sample" -Y "wlan.fc.type_subtype == 0x0c"
+    info "  both APs by SSID:"
+    run tshark -r "$sample" -Y "wlan.ssid == \"$SSID\""
+
+    info "Data-plane evidence (from your own combined.pcap):"
+    info "  harvested credential POST:"
+    run tshark -r "$combined" -Y "http.request.method == POST"
+    info "  the victim's DHCP lease from the twin:"
+    run tshark -r "$combined" -Y "dhcp || bootp"
+}
+
+cmd_teardown() {
+    need_root "$@"
+    info "Tearing down APs, services, and namespaces..."
+    run "$SCRIPTS/teardown.sh"
+}
+
+# --------------------------------------------------------------------------
+# Help.
+# --------------------------------------------------------------------------
+cmd_help() {
+    cat <<EOF
+${C_BOLD}eviltwin${C_RST} -- easy commands for the Evil Twin Attack training lab
+
+${C_BOLD}Usage:${C_RST} $PROG <command> [options]
+
+Every command prints the real underlying command (the '+' line) before it
+runs, and reads the AP BSSIDs for you -- no shell variables to juggle.
+
+${C_BOLD}The attack in five lines${C_RST}
+  1. The victim trusts '$SSID' (a WPA2 network).
+  2. The attacker clones that NAME on an OPEN access point (the evil twin).
+  3. A (simulated) deauth knocks the victim off the real AP.
+  4. Seeing the same name, the victim auto-joins the imposter.
+  5. A captive portal harvests its password in cleartext.
+  Same SSID on both APs -- only the BSSID differs. Watch it flip: $PROG show
+
+${C_BOLD}Commands${C_RST}
+  status            Check the three lab namespaces exist            (Part 1)
+  show              Dashboard: which AP is the victim on right now?  (any time)
+  setup             Create namespaces, one radio (wlan0) each       (per boot)
+  corp [up|info]    Start the legitimate corporate AP (WPA2)        (Part 2)
+                      up   = start the AP    info = show radio info
+  twin [up|info]    Start the rogue evil twin + portal (open)       (Part 3)
+                      up   = start the AP    info = show radio info
+  compare           Diff the corp vs evil-twin hostapd configs      (Part 3)
+                      identical vs different directives, and why
+  bssids            Print the corp and evil-twin BSSIDs             (Part 4)
+  victim [up|conf|join|verify|state]
+                    Put the victim on the LEGITIMATE AP, step by    (Part 4)
+                    step. No arg = do all four in order.
+                      up     = radio up (not yet associated)
+                      conf   = write wpa_supplicant conf (pin corp BSSID)
+                      join   = associate via wpa_supplicant (WPA2)
+                      verify = confirm victim is on the corp BSSID
+                      state  = show radio up/down + association (any time)
+  capture           Capture on all radios (run in 2nd terminal)     (Part 6)
+  deauth            Simulate the deauth that knocks the victim off  (Part 5)
+  roam [up|connect|verify]
+                    Move the victim onto the EVIL TWIN, step by      (Part 5)
+                    step. No arg = do all three in order.
+                      up      = bring the victim radio back up
+                      connect = associate to the open twin (iw connect)
+                      verify  = confirm victim is on the evil BSSID
+  portal [dhcp|form|submit|all] [--user U --pass P]
+                    Get a DHCP lease from the twin and submit creds  (Part 8)
+                    to its captive portal. No sub = dhcp + submit.
+                      dhcp   = request a lease (expect 10.10.11.x)
+                      form   = read the portal's real field names
+                      submit = POST credentials (--user/--pass)
+  creds             Show the harvested credentials log              (Part 8)
+  merge             Merge the three captures into combined.pcap     (Part 6)
+  analyze           Run the tshark analysis filters                 (Part 7)
+  teardown          Stop everything and delete the namespaces       (Cleanup)
+  help, --help, -h  Show this help
+
+${C_BOLD}Recommended order${C_RST} (see manual §3)
+  1. $PROG setup
+  2. $PROG corp
+  3. $PROG twin
+  4. $PROG victim              # or step by step: victim up|conf|join|verify
+  5. (2nd terminal) $PROG capture      # start BEFORE the deauth
+  6. $PROG deauth
+  7. $PROG roam
+  8. $PROG portal
+  9. (2nd terminal) Ctrl-C the capture, then: $PROG merge
+ 10. $PROG analyze     ;    $PROG creds
+ 11. $PROG teardown
+
+${C_BOLD}Install${C_RST} on the VM so students can just type 'eviltwin':
+  sudo install -m 0755 $LAB/bin/eviltwin /usr/local/bin/eviltwin
+
+Most commands need root; if you omit sudo, this tool re-runs itself with it.
+EOF
+}
+
+# --------------------------------------------------------------------------
+# Dispatch.
+# --------------------------------------------------------------------------
+main() {
+    local cmd="${1:-help}"
+    shift || true
+    case "$cmd" in
+        status)              cmd_status "$@" ;;
+        show|where)          cmd_show "$@" ;;
+        setup)               cmd_setup "$@" ;;
+        corp)                cmd_corp "$@" ;;
+        twin)                cmd_twin "$@" ;;
+        compare|diff)        cmd_compare "$@" ;;
+        bssids|bssid)        cmd_bssids "$@" ;;
+        victim)              cmd_victim "$@" ;;
+        capture)             cmd_capture "$@" ;;
+        deauth)              cmd_deauth "$@" ;;
+        roam)                cmd_roam "$@" ;;
+        portal)              cmd_portal "$@" ;;
+        creds)               cmd_creds "$@" ;;
+        merge)               cmd_merge "$@" ;;
+        analyze)             cmd_analyze "$@" ;;
+        teardown)            cmd_teardown "$@" ;;
+        help|--help|-h)      cmd_help ;;
+        *)                   warn "Unknown command: $cmd"; echo; cmd_help; exit 2 ;;
+    esac
+}
+
+main "$@"
+
