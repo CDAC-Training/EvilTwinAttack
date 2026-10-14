@@ -69,7 +69,15 @@ so you can watch each action. The smaller steps are shown in *(italics)*.
 eviltwin status
 ```
 Confirms the three namespaces (`ns-corp`, `ns-eviltwin`, `ns-victim`) exist. If
-any are missing, run `eviltwin setup` (needed once after every reboot).
+any are missing, run `eviltwin setup` (needed once after every reboot), such as:
+
+<img width="850" height="259" alt="image" src="https://github.com/user-attachments/assets/51033a9c-3b32-413e-990c-269e417305a3" />
+
+In this case, you got Not all namesspaces exist yet. Run: eviltwin setup
+
+<img width="1152" height="415" alt="image" src="https://github.com/user-attachments/assets/960536e9-6b89-4b1c-bc27-41f33b20ceb5" />
+
+
 
 ### Part 2 — Start the real Corporate AP
 ```bash
@@ -80,12 +88,16 @@ eviltwin corp
 Starts the legitimate WPA2 access point named `CorpNet-Secure`. **Look for**
 `type AP` and `ssid CorpNet-Secure` in the output.
 
+<img width="1535" height="553" alt="image" src="https://github.com/user-attachments/assets/314b2fb2-ed97-49c1-9403-3892d04f0078" />
+
 ### Part 3 — Start the Evil Twin
 ```bash
 eviltwin twin
 ```
 This starts a **second** AP with the **same name** but **open** (no password),
 plus DHCP and the fake login page.
+
+<img width="1457" height="553" alt="image" src="https://github.com/user-attachments/assets/13ae65c2-33c6-45fd-a262-5d81f409ae01" />
 
 Now compare the two APs' configs:
 ```bash
