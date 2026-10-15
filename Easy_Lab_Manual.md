@@ -144,6 +144,9 @@ In a **second terminal**, *before* the deauth:
 ```bash
 eviltwin capture      # press Ctrl-C to stop
 ```
+<img width="1506" height="393" alt="image" src="https://github.com/user-attachments/assets/30e847af-bd17-4e1d-964c-1e204e827107" />
+
+
 After the attack, stop it (`Ctrl-C`) and combine the files:
 ```bash
 eviltwin merge
@@ -154,12 +157,14 @@ eviltwin merge
 **Start your capture first**  in a second terminal if you want the
 attack in your `.pcap`.
 
-**Kick the victim off the real AP:**
+**Kick the victim off the real AP:**  Run  the following command from the first terminal window:
 ```bash
 eviltwin deauth
 ```
 It shows the victim's state before and after, and confirms it's now
 disconnected and won't reconnect on its own.
+
+<img width="1679" height="1135" alt="image" src="https://github.com/user-attachments/assets/476ba620-0230-457a-9638-6eeede6ec731" />
 
 **Move the victim onto the evil twin:**
 ```bash
@@ -173,12 +178,16 @@ eviltwin roam
 | 2 | `eviltwin roam connect` | Uses `iw connect` (the twin is **open**, so no password) |
 | 3 | `eviltwin roam verify` | `Connected to <evil BSSID>` — different from your baseline! |
 
+<img width="1653" height="1215" alt="image" src="https://github.com/user-attachments/assets/9d76dfca-c4b3-4778-bac3-2eb47f32f549" />
+
 Now run the dashboard again:
 ```bash
 eviltwin show
 ```
 The **Victim** line now says **ON THE EVIL TWIN** — even though the name is still
 `CorpNet-Secure`. That's the whole attack in one screen.
+
+<img width="1540" height="258" alt="image" src="https://github.com/user-attachments/assets/3095a681-4559-43a8-9924-535647b51f3e" />
 
 
 ### Part 7 — Analyze the packets
