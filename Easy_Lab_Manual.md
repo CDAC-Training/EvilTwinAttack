@@ -126,6 +126,8 @@ eviltwin victim
 | 3 | `eviltwin victim join` | Uses `wpa_supplicant` (WPA2 needs it) to associate |
 | 4 | `eviltwin victim verify` | `Connected to <real BSSID>` — this is your **BEFORE** state |
 
+<img width="1474" height="1039" alt="image" src="https://github.com/user-attachments/assets/429c69b3-2bbd-4f8f-aed3-efbddd3c3939" />
+
 Check the state at any time:
 ```bash
 eviltwin victim state    # shows radio UP/DOWN and connected/not connected
@@ -133,7 +135,9 @@ eviltwin show            # dashboard: which AP the victim is on
 ```
 **Write down** the BSSID the victim is connected to — you'll compare it later.
 
-<img width="1474" height="1039" alt="image" src="https://github.com/user-attachments/assets/429c69b3-2bbd-4f8f-aed3-efbddd3c3939" />
+<img width="1657" height="704" alt="image" src="https://github.com/user-attachments/assets/1993bb34-ba60-406e-b954-5ae995197739" />
+
+<img width="1258" height="253" alt="image" src="https://github.com/user-attachments/assets/6885a6a1-40fd-4fcf-8483-b2af7f106870" />
 
 ### Part 5 — Capture the traffic
 In a **second terminal**, *before* the deauth:
