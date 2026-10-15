@@ -111,6 +111,8 @@ eviltwin compare
 | `wpa` | `2` (WPA2) | `0` (open) | Twin needs no password → anyone joins, nothing to crack |
 | `channel` | `6` | `11` | Different channel so the two APs don't interfere |
 
+<img width="1415" height="1291" alt="image" src="https://github.com/user-attachments/assets/fa256bc2-997d-465b-abde-9744a4a7adee" />
+
 ### Part 4 — Baseline: put the victim on the REAL AP
 ```bash
 eviltwin victim
@@ -130,6 +132,8 @@ eviltwin victim state    # shows radio UP/DOWN and connected/not connected
 eviltwin show            # dashboard: which AP the victim is on
 ```
 **Write down** the BSSID the victim is connected to — you'll compare it later.
+
+<img width="1474" height="1039" alt="image" src="https://github.com/user-attachments/assets/429c69b3-2bbd-4f8f-aed3-efbddd3c3939" />
 
 ### Part 5 — Capture the traffic
 In a **second terminal**, *before* the deauth:
