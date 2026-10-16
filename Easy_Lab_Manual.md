@@ -196,6 +196,16 @@ eviltwin analyze
 ```
 Runs `tshark` filters for beacons, the deauth frame, both APs by SSID, the
 credential **POST**, and the victim's DHCP lease.
+```bash
+tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x08"
+```
+<img width="1919" height="355" alt="image" src="https://github.com/user-attachments/assets/4e78d8c7-8e7f-44e6-99f2-712c2b706978" />
+
+
+```bash
+tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x0c"
+```
+<img width="1624" height="124" alt="image" src="https://github.com/user-attachments/assets/9dea4081-27e6-48ce-b9f6-aa9577eb7e83" />
 
 ### Part 8 — Harvest credentials through the portal
 ```bash
