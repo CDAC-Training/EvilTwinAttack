@@ -137,6 +137,13 @@ eviltwin show            # dashboard: which AP the victim is on
 
 <img width="1657" height="704" alt="image" src="https://github.com/user-attachments/assets/1993bb34-ba60-406e-b954-5ae995197739" />
 
+You may find the Channell information from the FREQ: 2462.0 MHz
+
+<img width="816" height="624" alt="image" src="https://github.com/user-attachments/assets/5478b658-1e1f-4828-be3d-191504780ad0" />
+
+```bash
+eviltwin show
+```
 <img width="1258" height="253" alt="image" src="https://github.com/user-attachments/assets/6885a6a1-40fd-4fcf-8483-b2af7f106870" />
 
 ### Part 5 — Capture the traffic
