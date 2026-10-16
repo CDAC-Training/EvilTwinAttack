@@ -230,10 +230,16 @@ Use your own values if you like:
 ```bash
 eviltwin portal submit --user alice --pass Hunter2!
 ```
+
+<img width="1374" height="235" alt="image" src="https://github.com/user-attachments/assets/cc70ea47-41f7-49ce-bda8-763c575e13ca" />
+
 Then see what the attacker captured **in cleartext**:
 ```bash
 eviltwin creds
 ```
+<img width="1151" height="226" alt="image" src="https://github.com/user-attachments/assets/1dc5ea21-9b1c-4836-bfa6-68b19ccb2fc4" />
+
+
 > **Think about this:** the same password over the real AP's **WPA2** link would
 > be **encrypted** on the air. On the open twin, it's readable. That's the point.
 
