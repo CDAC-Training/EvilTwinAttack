@@ -59,7 +59,7 @@ Run these in order. Steps 5 and the capture happen in a **second terminal**.
 
 ---
 
-## 3. Step by step
+## 3. Step-by-step Instruction
 
 Each `eviltwin` command can be run in one shot, **or** broken into smaller steps
 so you can watch each action. The smaller steps are shown in *(italics)*.
