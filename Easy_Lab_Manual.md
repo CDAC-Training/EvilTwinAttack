@@ -238,6 +238,17 @@ eviltwin analyze
 ```
 Runs `tshark` filters for beacons, the deauth frame, both APs by SSID, the
 credential **POST**, and the victim's DHCP lease.
+
+Common Management Frame Subtypes
+Frame	Type	Subtype	wlan.fc.type_subtypeAssociation Request	0	0	0x00
+Association Response	0	1	0x01
+Probe Request	0	4	0x04
+Probe Response	0	5	0x05
+Beacon	0	8	0x08
+Disassociation	0	10	0x0a
+Authentication	0	11	0x0b
+Deauthentication	0	12	0x0c
+
 ```bash
 tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x08"
 ```
