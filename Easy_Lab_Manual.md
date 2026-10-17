@@ -154,11 +154,6 @@ eviltwin capture      # press Ctrl-C to stop
 <img width="1506" height="393" alt="image" src="https://github.com/user-attachments/assets/30e847af-bd17-4e1d-964c-1e204e827107" />
 
 
-After the attack, stop it (`Ctrl-C`) and combine the files:
-```bash
-eviltwin merge
-```
-
 ### Part 6 — Force the roam (the attack)
 
 **Start your capture first**  in a second terminal if you want the
@@ -197,24 +192,8 @@ The **Victim** line now says **ON THE EVIL TWIN** — even though the name is st
 <img width="1540" height="258" alt="image" src="https://github.com/user-attachments/assets/3095a681-4559-43a8-9924-535647b51f3e" />
 
 
-### Part 7 — Analyze the packets
-```bash
-eviltwin analyze
-```
-Runs `tshark` filters for beacons, the deauth frame, both APs by SSID, the
-credential **POST**, and the victim's DHCP lease.
-```bash
-tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x08"
-```
-<img width="1919" height="355" alt="image" src="https://github.com/user-attachments/assets/4e78d8c7-8e7f-44e6-99f2-712c2b706978" />
 
-
-```bash
-tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x0c"
-```
-<img width="1624" height="124" alt="image" src="https://github.com/user-attachments/assets/9dea4081-27e6-48ce-b9f6-aa9577eb7e83" />
-
-### Part 8 — Harvest credentials through the portal
+### Part 7 — Harvest credentials through the portal
 ```bash
 eviltwin portal
 ```
@@ -243,7 +222,33 @@ eviltwin creds
 > **Think about this:** the same password over the real AP's **WPA2** link would
 > be **encrypted** on the air. On the open twin, it's readable. That's the point.
 
-### Cleanup
+### Part 8 — Stop the Capture
+
+After the attack, stop it (`Ctrl-C`) in the second terminal
+
+After the capture data and combine the files:
+```bash
+eviltwin merge
+```
+
+### Part 9 — Analyze the packets
+```bash
+eviltwin analyze
+```
+Runs `tshark` filters for beacons, the deauth frame, both APs by SSID, the
+credential **POST**, and the victim's DHCP lease.
+```bash
+tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x08"
+```
+<img width="1919" height="355" alt="image" src="https://github.com/user-attachments/assets/4e78d8c7-8e7f-44e6-99f2-712c2b706978" />
+
+
+```bash
+tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x0c"
+```
+<img width="1624" height="124" alt="image" src="https://github.com/user-attachments/assets/9dea4081-27e6-48ce-b9f6-aa9577eb7e83" />
+
+### Part 10 Cleanup
 ```bash
 eviltwin teardown
 ```
