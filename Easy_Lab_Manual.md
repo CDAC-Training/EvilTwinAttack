@@ -239,9 +239,9 @@ eviltwin analyze
 Runs `tshark` filters for beacons, the deauth frame, both APs by SSID, the
 credential **POST**, and the victim's DHCP lease.
 
-Common Management Frame Subtypes
-|Frame	|Type	Subtype	|wlan.fc.type_subtype|
-|--------|--------------|--------------------|
+**Common Management Frame Subtypes**
+|Frame	|Type	|Subtype	|wlan.fc.type_subtype|
+|--------|-----|--------|--------------------|
 |Association Request	|0	|0	|0x00|
 |Association Response	|0	|1	|0x01|
 |Probe Request	|0	|4	|0x04|
