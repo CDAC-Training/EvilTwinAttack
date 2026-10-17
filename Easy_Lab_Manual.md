@@ -10,7 +10,7 @@ Kali VM — no real Wi‑Fi, no real network, nothing leaves the machine.
 
 ---
 
-## 1. The attack in five lines
+## 1. The Attack In Five Lines
 
 1. The victim trusts **`CorpNet-Secure`** — a normal WPA2 Wi‑Fi network.
 2. The attacker clones that **name** on an **open** access point (the *evil twin*).
@@ -33,7 +33,7 @@ the name never changes.
 
 ---
 
-## 2. The whole lab on one page
+## 2. The Whole Lab On One Page
 
 Run these in order. Steps 5 and the capture happen in a **second terminal**.
 
@@ -59,12 +59,12 @@ Run these in order. Steps 5 and the capture happen in a **second terminal**.
 
 ---
 
-## 3. Step-by-step Instruction
+## 3. Step-by-Step Instruction
 
 Each `eviltwin` command can be run in one shot, **or** broken into smaller steps
 so you can watch each action. The smaller steps are shown in *(italics)*.
 
-### Part 1 — Check your environment
+### Part 1 — Check Your Environment
 ```bash
 eviltwin status
 ```
@@ -79,7 +79,7 @@ In this case, you got Not all namesspaces exist yet. Run: eviltwin setup
 
 
 
-### Part 2 — Start the real Corporate AP
+### Part 2 — Start The Real Corporate AP
 ```bash
 eviltwin corp
 ```
@@ -90,7 +90,7 @@ Starts the legitimate WPA2 access point named `CorpNet-Secure`. **Look for**
 
 <img width="1535" height="553" alt="image" src="https://github.com/user-attachments/assets/314b2fb2-ed97-49c1-9403-3892d04f0078" />
 
-### Part 3 — Start the Evil Twin
+### Part 3 — Start The Evil Twin
 ```bash
 eviltwin twin
 ```
@@ -113,7 +113,7 @@ eviltwin compare
 
 <img width="1415" height="1291" alt="image" src="https://github.com/user-attachments/assets/fa256bc2-997d-465b-abde-9744a4a7adee" />
 
-### Part 4 — Baseline: put the victim on the REAL AP
+### Part 4 — Baseline: Put The Victim On The REAL AP
 ```bash
 eviltwin victim
 ```
@@ -146,7 +146,7 @@ eviltwin show
 ```
 <img width="1258" height="253" alt="image" src="https://github.com/user-attachments/assets/6885a6a1-40fd-4fcf-8483-b2af7f106870" />
 
-### Part 5 — Capture the traffic
+### Part 5 — Capture The Traffic
 In a **second terminal**, *before* the deauth:
 ```bash
 eviltwin capture      # Start the capture the traffic packages. Press Ctrl-C to stop after complete the part 8.
@@ -154,7 +154,7 @@ eviltwin capture      # Start the capture the traffic packages. Press Ctrl-C to 
 <img width="1506" height="393" alt="image" src="https://github.com/user-attachments/assets/30e847af-bd17-4e1d-964c-1e204e827107" />
 
 
-### Part 6 — Force the roam (the attack)
+### Part 6 — Force The Roam (The Attack)
 
 **Start your capture first**  in a second terminal if you want the
 attack in your `.pcap`.
@@ -193,7 +193,7 @@ The **Victim** line now says **ON THE EVIL TWIN** — even though the name is st
 
 
 
-### Part 7 — Harvest credentials through the portal
+### Part 7 — Harvest Credentials Through The Portal
 ```bash
 eviltwin portal
 ```
@@ -222,7 +222,7 @@ eviltwin creds
 > **Think about this:** the same password over the real AP's **WPA2** link would
 > be **encrypted** on the air. On the open twin, it's readable. That's the point.
 
-### Part 8 — Stop the Capture
+### Part 8 — Stop The Capture
 
 After the attack, stop it (`Ctrl-C`) in the second terminal
 
@@ -231,7 +231,7 @@ After the capture data and combine the files:
 eviltwin merge
 ```
 
-### Part 9 — Analyze the packets
+### Part 9 — Analyze The Packets
 ```bash
 eviltwin analyze
 ```
@@ -257,7 +257,7 @@ namespaces. (After a reboot, start again from `eviltwin setup`.)
 
 ---
 
-## 4. Quick troubleshooting
+## 4. Quick Troubleshooting
 
 | Problem | Try this |
 |---------|----------|
@@ -269,7 +269,7 @@ namespaces. (After a reboot, start again from `eviltwin setup`.)
 
 ---
 
-## 5. Check your understanding
+## 5. Check Your Understanding
 
 1. Both APs use the name `CorpNet-Secure`. What single value lets the victim (and
    you) tell them apart?
