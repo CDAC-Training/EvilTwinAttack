@@ -149,7 +149,7 @@ eviltwin show
 ### Part 5 — Capture the traffic
 In a **second terminal**, *before* the deauth:
 ```bash
-eviltwin capture      # press Ctrl-C to stop
+eviltwin capture      # Start the capture the traffic packages. Press Ctrl-C to stop after complete the part 8.
 ```
 <img width="1506" height="393" alt="image" src="https://github.com/user-attachments/assets/30e847af-bd17-4e1d-964c-1e204e827107" />
 
