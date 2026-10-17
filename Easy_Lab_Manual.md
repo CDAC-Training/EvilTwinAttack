@@ -47,7 +47,7 @@ Run these in order. Steps 5 and the capture happen in a **second terminal**.
 | — | `eviltwin show` | **Dashboard: which AP is the victim on?** | any time |
 | 5 | `eviltwin capture` | *(2nd terminal)* record all traffic — start **before** the deauth | Part 5 |
 | 6 | `eviltwin deauth` | Kick the victim off the real AP | Part 6  |
-| 7 | `eviltwin roam` | Move the victim onto the **evil twin** | Part 5 |
+| 7 | `eviltwin roam` | Move the victim onto the **evil twin** | Part 6 |
 | 8 | `eviltwin portal` | Victim gets an IP + submits its password | Part 7 |
 | — | `eviltwin creds` | See the harvested passwords | Part 7 |
 | 9 | *(2nd terminal)* `Ctrl-C`, then `eviltwin merge` | Combine the captures | Part 8 |
