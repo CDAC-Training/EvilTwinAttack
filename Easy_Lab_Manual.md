@@ -48,10 +48,10 @@ Run these in order. Steps 5 and the capture happen in a **second terminal**.
 | 5 | `eviltwin capture` | *(2nd terminal)* record all traffic — start **before** the deauth | Part 5 |
 | 6 | `eviltwin deauth` | Kick the victim off the real AP | Part 6  |
 | 7 | `eviltwin roam` | Move the victim onto the **evil twin** | Part 5 |
-| 8 | `eviltwin portal` | Victim gets an IP + submits its password | Part 8 |
-| — | `eviltwin creds` | See the harvested passwords | Part 8 |
-| 9 | *(2nd terminal)* `Ctrl-C`, then `eviltwin merge` | Combine the captures | Part 6 |
-| 10 | `eviltwin analyze` | Run the packet‑analysis filters | Part 7 |
+| 8 | `eviltwin portal` | Victim gets an IP + submits its password | Part 7 |
+| — | `eviltwin creds` | See the harvested passwords | Part 7 |
+| 9 | *(2nd terminal)* `Ctrl-C`, then `eviltwin merge` | Combine the captures | Part 8 |
+| 10 | `eviltwin analyze` | Run the packet‑analysis filters | Part 9 |
 | 11 | `eviltwin teardown` | Stop everything, delete namespaces | Cleanup |
 
 > **Stuck?** Run `eviltwin show` to see the current state, or `eviltwin --help`
