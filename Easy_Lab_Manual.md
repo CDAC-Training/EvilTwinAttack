@@ -232,6 +232,7 @@ eviltwin merge
 ```
 
 ### Part 9 — Analyze The Packets
+
 ```bash
 eviltwin analyze
 ```
@@ -242,6 +243,7 @@ tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0
 ```
 <img width="1919" height="355" alt="image" src="https://github.com/user-attachments/assets/4e78d8c7-8e7f-44e6-99f2-712c2b706978" />
 
+A deauthentication frame is a management frame (subtype 12) that tells a Wi‑Fi client to disconnect from an AP. Attackers can spoof these frames to force reconnections, disrupt service, or facilitate Evil Twin attacks unless Protected Management Frames (802.11w/PMF) are enabled.
 
 ```bash
 tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0x0c"
