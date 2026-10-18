@@ -73,7 +73,7 @@ any are missing, run `eviltwin setup` (needed once after every reboot), such as:
 
 <img width="850" height="259" alt="image" src="https://github.com/user-attachments/assets/51033a9c-3b32-413e-990c-269e417305a3" />
 
-In this case, you got Not all namesspaces exist yet. Run: eviltwin setup
+In this case, you got "Not all namesspaces exist yet". Run: eviltwin setup
 
 <img width="1152" height="415" alt="image" src="https://github.com/user-attachments/assets/960536e9-6b89-4b1c-bc27-41f33b20ceb5" />
 
