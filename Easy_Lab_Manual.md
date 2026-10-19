@@ -147,7 +147,10 @@ eviltwin show
 <img width="1258" height="253" alt="image" src="https://github.com/user-attachments/assets/6885a6a1-40fd-4fcf-8483-b2af7f106870" />
 
 ### Part 5 — Capture The Traffic
-In a **second terminal**, *before* the deauth:
+
+Start your capture first In a  **SECOND TERMINAL** , *before* the deauth:
+The traffic package will be recored into `.pcap` file.
+
 ```bash
 eviltwin capture      # Start the capture the traffic packages. Press Ctrl-C to stop after complete the part 8.
 ```
@@ -156,10 +159,8 @@ eviltwin capture      # Start the capture the traffic packages. Press Ctrl-C to 
 
 ### Part 6 — Force The Roam (The Attack)
 
-**Start your capture first**  in a second terminal if you want the
-attack in your `.pcap`.
+**Kick the victim off the real AP:**  Run  the following command from the **FIRST TERMINAL**:
 
-**Kick the victim off the real AP:**  Run  the following command from the first terminal window:
 ```bash
 eviltwin deauth
 ```
@@ -224,7 +225,7 @@ eviltwin creds
 
 ### Part 8 — Stop The Capture
 
-After the attack, stop it (`Ctrl-C`) in the second terminal
+After the attack, stop it (`Ctrl-C`) in the **second terminal**
 
 After the capture data and combine the files:
 ```bash
