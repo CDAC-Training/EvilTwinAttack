@@ -264,6 +264,27 @@ tshark -r /opt/eviltwin-lab/captures/combined.pcap -Y "wlan.fc.type_subtype == 0
 ```
 <img width="1624" height="124" alt="image" src="https://github.com/user-attachments/assets/9dea4081-27e6-48ce-b9f6-aa9577eb7e83" />
 
+Useful command for an Evil Twin lab
+```bash
+tshark -r combined.pcap \
+-Y "wlan.fc.type_subtype == 0x0c" \
+-T fields \
+-e frame.number \
+-e frame.time_relative \
+-e wlan.sa \
+-e wlan.da \
+-e wlan.seq \
+-e wlan.reason_code
+
+```
+This gives evidence of:
+
+1. A deauthentication management frame (0x0c)
+2. Which device sent it (wlan.sa)
+3. Which device received it (wlan.da)
+4. The sequence number (wlan.seq)
+5. The deauthentication reason (wlan.reason_code)
+
 ### Part 10 Cleanup
 ```bash
 eviltwin teardown
